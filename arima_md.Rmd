@@ -1,0 +1,79 @@
+---
+title: "ARIMA_JNJ_MD"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### ARIMA with R ###
+#Forecasting Johnson & Johnson stock price with ARIMA
+
+```{r}
+myData <- read.csv("JNJ.csv")
+dates <- as.Date(myData$Date)
+myData <- cbind(myData, dates)
+```
+```{r}
+#load libraries
+library(MASS)
+library(tseries)
+library(forecast)
+```
+```{r}
+#Plot and log trainprice (90% of data)
+lnprice <- log(myData$Close[1:(nrow(myData)*0.9)])
+```
+
+#ACF PACF Dickey-fuller test
+
+```{r}
+acf(lnprice, lag.max = 20)
+```
+```{r}
+pacf(lnprice, lag.max = 20)
+adf.test(lnprice)
+```
+```{r}
+#non-stationarity detected
+difflnprice <- diff(lnprice, lag = 1, difference = 1)
+adf.test(difflnprice)
+acf(difflnprice, lag.max = 20)
+pacf(difflnprice, lag.max = 20)
+```
+```{r}
+# Likely MA(1) model
+# change to timeseries, autoarima
+myts <- ts(lnprice, start = c(2020, as.numeric(format(myData$dates[1], "%j"))),
+           frequency = 365)
+fitlnprice <- auto.arima(myts)
+# Xi+1=Xi+ϵi
+```
+```{r}
+#plot
+plot(myts, type='l')
+title('JNJ price')
+exp(lnprice)
+```
+```{r}
+#forecast
+forecasted <- forecast(fitlnprice, h= (0.1*nrow(myData)))
+plot(forecasted)
+```
+```{r}
+forecast_values <- as.numeric(forecasted$mean)
+finalforecast <- exp(forecast_values)
+```
+```{r}
+#evaluation
+df <- data.frame(myData$Close[226:250], finalforecast)
+names(df) <- c("Actual", "Forecasted")
+percentage_error = ((df$Actual-df$Forecasted)/df$Actual)
+mean( percentage_error)
+```
+```{r}
+#Ljung-box _ serial correlation test
+Box.test(fitlnprice$residuals, lag=5, type = "Ljung-Box")
+```
+
